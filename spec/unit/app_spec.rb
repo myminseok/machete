@@ -1,4 +1,4 @@
-require 'spec_helper'
+require './spec/spec_helper'
 require 'machete/app'
 
 describe Machete::App do
@@ -11,7 +11,7 @@ describe Machete::App do
 
       # capture all run_cmd arguments for easier debugging
       @run_commands = []
-      allow_any_instance_of(Machete::App).to receive(:run_cmd) do |_, *ary|
+      allow_any_instance_of(Machete::SystemHelper).to receive(:run_cmd) do |_, *ary|
         @run_commands.push ary.first
         ""
       end
