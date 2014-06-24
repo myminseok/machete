@@ -1,11 +1,8 @@
 require 'httparty'
 require 'machete/system_helper'
-require 'json'
 
 module Machete
   class AppController
-    include SystemHelper
-
     attr_reader :output,
                 :app_name,
                 :app_path,
@@ -17,7 +14,7 @@ module Machete
                 :app,
                 :fixture
 
-    def initialize(app_path, opts={})
+    def initialize(app_path, host, opts={})
       @app_name = app_path.split("/").last
       @app_path = app_path
       @cmd = opts.fetch(:cmd, nil)
@@ -26,7 +23,7 @@ module Machete
       @vendor_gems_before_push = opts.fetch(:vendor_gems_before_push, false)
       @env = opts.fetch(:env, {})
 
-      @app = Machete::App.new(app_name)
+      @app = Machete::App.new(app_path, host)
       @fixture = Machete::Fixture.new(app_path)
     end
 
@@ -34,7 +31,7 @@ module Machete
       env['DATABASE_URL'] = database_url if with_pg
 
       Dir.chdir(fixture.directory) do
-        clear_internet_access_log
+        Host::Log.new(app.host).clear
         fixture.vendor
         app.delete
         app.push(start: env.empty?)
@@ -43,25 +40,7 @@ module Machete
       end
     end
 
-    def cf_internet_log
-      run_on_host('sudo cat /var/log/internet_access.log')
-    end
-
-    def number_of_running_instances
-      app_summary_url = app_resource['metadata']['url'] + '/summary'
-      app = json("cf curl #{app_summary_url}")
-      app['running_instances']
-    end
-
     # TODO: Add rspec matchers so there is no need to delegate here
-    def homepage_html
-      app.homepage_body
-    end
-
-    def logs
-      app.logs
-    end
-
     def staging_log
       app.file 'logs/staging_task.log'
     end
@@ -88,22 +67,7 @@ module Machete
     end
 
     def ha_proxy_ip
-      @ha_proxy ||= run_cmd('cf api').scan(/api\.(\d+\.\d+\.\d+\.\d+)\.xip\.io/).flatten.first
-    end
-
-    def clear_internet_access_log
-      run_on_host('sudo rm /var/log/internet_access.log')
-      run_on_host('sudo restart rsyslog')
-    end
-
-    def app_resource
-      apps_response = json("cf curl /v2/apps?q='name:#{app_name}'")
-      return if apps_response['total_results'] != 1
-      apps_response['resources'].first
-    end
-
-    def json cmd
-      JSON.parse run_cmd(cmd, true)
+      @ha_proxy ||= SystemHelper.run_cmd('cf api').scan(/api\.(\d+\.\d+\.\d+\.\d+)\.xip\.io/).flatten.first
     end
   end
 end

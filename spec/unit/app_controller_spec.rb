@@ -1,25 +1,12 @@
 require 'spec_helper'
 
 describe Machete::AppController do
-  subject(:app_controller) { Machete::AppController.new('path/app_name') }
+  subject(:app_controller) { Machete::AppController.new(path, host) }
+  let(:host) { double(:host, run: '') }
+  let(:path) { 'path/app_name' }
 
   before do
     allow_any_instance_of(Machete::SystemHelper).to receive(:run_on_host)
-  end
-
-  describe '#cf_internet_log' do
-    let(:log_entry) { double(:log_entry) }
-
-    before do
-      allow_any_instance_of(Machete::SystemHelper).to receive(:run_on_host).
-                                                        with('sudo cat /var/log/internet_access.log').
-                                                        and_return(log_entry)
-    end
-
-    specify do
-      expect(app_controller.cf_internet_log).to eql log_entry
-      expect(app_controller).to have_received(:run_on_host).with('sudo cat /var/log/internet_access.log')
-    end
   end
 
   describe '#initialize' do
@@ -38,7 +25,7 @@ describe Machete::AppController do
       end
 
       specify do
-        expect(Machete::App).to have_received(:new).with('app_name')
+        expect(Machete::App).to have_received(:new).with(path, host)
       end
     end
 
@@ -50,26 +37,6 @@ describe Machete::AppController do
       specify do
         expect(Machete::Fixture).to have_received(:new).with('path/app_name')
       end
-    end
-  end
-
-  describe '#homepage_html' do
-    before(:each) do
-      allow(app_controller.app).to receive(:homepage_body).and_return('the app body')
-    end
-
-    specify do
-      expect(app_controller.homepage_html).to eql 'the app body'
-    end
-  end
-
-  describe '#logs' do
-    before(:each) do
-      allow(app_controller.app).to receive(:logs).and_return('some logging')
-    end
-
-    specify do
-      expect(app_controller.logs).to eql 'some logging'
     end
   end
 
@@ -96,34 +63,22 @@ describe Machete::AppController do
   end
 
   describe '#push' do
+    let(:host_log) { double(:host_log, clear: true) }
+
     before do
       allow(Dir).to receive(:chdir).and_yield
-      allow(app_controller).to receive(:run_cmd).and_return("")
       allow(Machete).to receive(:logger).and_return(double.as_null_object)
 
+      allow(Machete::Host::Log).to receive(:new).with(host).and_return host_log
       allow(app_controller.app).to receive(:delete)
       allow(app_controller.app).to receive(:push)
       allow(app_controller.app).to receive(:set_env)
     end
 
     context 'clearing internet access log' do
-      before do
-        allow(app_controller).to receive(:run_on_host)
-      end
-
       specify do
         app_controller.push
-
-        expect(app_controller).
-          to have_received(:run_on_host).
-               ordered.
-               with('sudo rm /var/log/internet_access.log')
-
-        expect(app_controller).
-          to have_received(:run_on_host).
-               ordered.
-               with('sudo restart rsyslog')
-
+        expect(host_log).to have_received(:clear).ordered
         expect(app_controller.app).to have_received(:delete).ordered
       end
     end
@@ -151,7 +106,7 @@ describe Machete::AppController do
     end
 
     context 'options' do
-      let(:app_controller) { Machete::AppController.new('path/app_name', options) }
+      let(:app_controller) { Machete::AppController.new('path/app_name', host, options) }
       let(:options) do
         {}
       end
@@ -183,7 +138,7 @@ describe Machete::AppController do
         end
 
         before do
-          allow(app_controller).to receive(:run_cmd).with('cf api').and_return('api.1.1.1.1.xip.io')
+          allow(Machete::SystemHelper).to receive(:run_cmd).with('cf api').and_return('api.1.1.1.1.xip.io')
         end
 
         context 'with default database name' do
@@ -213,34 +168,6 @@ describe Machete::AppController do
           end
         end
       end
-    end
-  end
-
-  describe '#number_of_running_instances' do
-    let(:app_resource_url) { '/v2/apps/app_url' }
-
-    before do
-      allow(app_controller).
-        to receive(:run_cmd).
-             with('cf curl /v2/apps?q=\'name:app_name\'', true).
-             and_return('{
-                  "total_results": 1,
-                  "resources": [
-                      {
-                          "metadata": {
-                              "url": "' + app_resource_url + '"
-                          }
-                      }
-                  ]
-              }')
-      allow(app_controller).
-        to receive(:run_cmd).
-             with('cf curl ' + app_resource_url + '/summary', true).
-             and_return('{"running_instances":3}')
-    end
-
-    it 'returns the number_of_instances' do
-      expect(app_controller.number_of_running_instances).to eql 3
     end
   end
 end
