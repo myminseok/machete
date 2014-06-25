@@ -11,12 +11,12 @@ create_database() {
     bosh ssh --gateway_user vcap postgres_z1 0 --default_password p "$postgres_path_command;$change_path_command;$drop_buildpacks_db_command;$drop_wordpress_db_command;$create_user_command;$create_buildpacks_db_command;$create_wordpress_db_command"
 }
 
-cd /Users/pivotal/workspace/bosh-lite
+cd $HOME/workspace/tmpboxes/first
 bosh target 192.168.50.4
 bosh login admin admin
 create_database
 
-cd $HOME/workspace/bosh-lite-2nd-instance
-bosh target 192.168.100.4
+cd $HOME/workspace/tmpboxes/second
+bosh target 192.168.50.5
 bosh login admin admin
 create_database

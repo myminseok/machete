@@ -93,7 +93,7 @@ module Machete
       end
 
       def mac_subnet
-        '192.168.100.0/24'
+        '192.168.50.0/24'
       end
 
       def dns_addr
