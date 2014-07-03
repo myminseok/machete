@@ -7,7 +7,6 @@ describe Machete do
     let(:path) { 'path/to/app_name' }
     let(:app_controller) { double(:app_controller) }
     let(:host) { double(:host) }
-    let(:app_controller_options) { {} }
 
     before do
       allow(Machete::AppController).
@@ -21,14 +20,14 @@ describe Machete do
 
       allow(app_controller).
         to receive(:deploy).
-             with(app, app_controller_options)
+             with(app)
     end
 
     context 'no additional options' do
       before do
         allow(Machete::App).
           to receive(:new).
-               with(path, host, start_command: nil).
+               with(path, host, {}).
                and_return(app)
       end
 
@@ -41,21 +40,19 @@ describe Machete do
     end
 
     context 'with additional options' do
-      context 'with start command' do
-        let(:start_command) { double(:start_command) }
+      let(:options) { double(:options) }
 
-        before do
-          allow(Machete::App).
-            to receive(:new).
-                 with(path, host, start_command: start_command).
-                 and_return(app)
-        end
+      before do
+        allow(Machete::App).
+          to receive(:new).
+               with(path, host, options).
+               and_return(app)
+      end
 
-        specify do
-          result = Machete.deploy_app('path/to/app_name', start_command: start_command)
-          expect(result).to eql app
-          expect(app_controller).to have_received(:deploy)
-        end
+      specify do
+        result = Machete.deploy_app('path/to/app_name', options)
+        expect(result).to eql app
+        expect(app_controller).to have_received(:deploy)
       end
     end
   end

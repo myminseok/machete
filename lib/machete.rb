@@ -7,13 +7,14 @@ require 'machete/buildpack_mode'
 require 'machete/firewall'
 require 'machete/cf'
 require 'machete/host'
+require 'machete/vendor_dependencies'
+require 'machete/database_url_builder'
 
 module Machete
   class << self
     def deploy_app(path, options={})
-      start_command = options.delete(:start_command)
-      app = App.new(path, host, start_command: start_command)
-      app_controller.deploy(app, options)
+      app = App.new(path, host, options)
+      app_controller.deploy(app)
       app
     end
 

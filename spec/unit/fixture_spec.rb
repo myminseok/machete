@@ -12,11 +12,7 @@ module Machete
 
     describe '#vendor' do
       before do
-        allow(Machete.logger).to receive(:action)
-        allow(Bundler).to receive(:with_clean_env).and_yield
-        allow(SystemHelper).to receive(:run_cmd)
-        allow(File).to receive(:exist?).with('package.sh').and_return(package_script_exists)
-        fixture.vendor
+
       end
 
       context 'when there is no script' do
