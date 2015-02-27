@@ -3,12 +3,12 @@ require 'spec_helper'
 module Machete
   describe Host::Vagrant do
 
-    subject(:host) { Host::Vagrant.new }
+    subject(:host) { Host::Vagrant.new(vagrant_cwd) }
 
     context 'when VAGRANT_CWD is set' do
-      before do
-        ENV['VAGRANT_CWD'] = 'true'
+      let(:vagrant_cwd) { '/tmp' }
 
+      before do
         allow(Bundler).
           to receive(:with_clean_env).
                and_yield
@@ -25,9 +25,7 @@ module Machete
     end
 
     context 'when VAGRANT_CWD is not set' do
-      before do
-        ENV['VAGRANT_CWD'] = nil
-      end
+      let(:vagrant_cwd) { nil }
 
       specify do
         expect do
