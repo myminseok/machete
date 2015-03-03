@@ -1,9 +1,9 @@
 require 'spec_helper'
 
-module Machete
-  describe Host::Log do
+module Machete::Host
+  describe Vagrant::Log do
     let(:host) { double(:host) }
-    subject(:host_log) { Host::Log.new(host) }
+    subject(:host_log) { Vagrant::Log.new(host) }
 
     describe '#contents' do
       before do

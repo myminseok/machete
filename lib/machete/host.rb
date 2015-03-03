@@ -1,6 +1,5 @@
 require 'machete/host/vagrant'
 require 'machete/host/aws'
-require 'machete/host/log'
 
 module Machete
   module Host

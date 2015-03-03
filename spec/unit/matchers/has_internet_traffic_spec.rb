@@ -5,21 +5,20 @@ module Machete
   describe '#has_internet_traffic' do
     let(:app)  { double(:app, host: host) }
     let(:host) { double(:host) }
-    let(:host_log) { double(:host_log)}
+    let(:log_manager) { double(:log_manager) }
 
     before do
 
-      allow(Host::Log).
-        to receive(:new).
-        with(host).
-        and_return(host_log)
+      allow(host).
+        to receive(:create_log_manager).
+        and_return(log_manager)
 
-      allow(host_log).
+      allow(log_manager).
         to receive(:contents).
         and_return(log_contents)
     end
 
-    context 'vagrant has internet traffic ' do
+    context 'there is internet traffic ' do
       let(:log_contents) { 'cf-to-internet-traffic' }
 
       specify do
@@ -27,7 +26,7 @@ module Machete
       end
     end
 
-    context 'vagrant does not have internet traffic' do
+    context 'there is not internet traffic' do
       let(:log_contents) { '' }
 
       specify do

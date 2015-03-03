@@ -1,4 +1,6 @@
 require 'bundler'
+require 'machete/host/vagrant/log'
+
 
 module Machete
   module Host
@@ -6,7 +8,6 @@ module Machete
     end
 
     class Vagrant
-
       def initialize(vagrant_cwd)
         @vagrant_cwd = vagrant_cwd
       end
@@ -19,6 +20,10 @@ module Machete
           result = `vagrant ssh -c '#{command}' 2>&1`
         end
         result
+      end
+
+      def create_log_manager
+        Log.new(self)
       end
 
       private
