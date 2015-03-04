@@ -5,6 +5,20 @@ module Machete
 
     subject(:host) { Host::Aws.new }
 
+    describe '#create_log_manager' do
+      let(:log_manager) { double(:log_manager) }
+
+      before do
+        allow(Host::Aws::Log).to receive(:new).
+                                       with(host).
+                                       and_return(log_manager)
+      end
+
+      specify do
+        expect(host.create_log_manager).to eql(log_manager)
+      end
+    end
+
     describe '#run' do
       let(:command) { 'echo "hello there"' }
 
@@ -15,7 +29,7 @@ module Machete
 
         allow(host).
           to receive(:`).
-               with("bosh ssh runner_z1 --gateway_user vcap --gateway_host microbosh.my.host --default_password p 'echo \"---COMMAND START---\"; #{command}; echo \"---COMMAND STOP---\"' 2>&1").
+               with("bosh ssh runner_z1 --gateway_user vcap --gateway_host microbosh.my.host --default_password p \"echo \"---COMMAND START---\"; #{command}; echo \"---COMMAND STOP---\"\" 2>&1").
                and_return <<BOSH_RESULT
 This is bosh output
 More Bosh output
