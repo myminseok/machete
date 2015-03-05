@@ -11,11 +11,11 @@ module Machete
     end
 
     def clear
-      @app.create_db_manager.run psql(drop_database_command)
+      @app.host.create_db_manager.run psql(drop_database_command)
     end
 
     def create
-      @app.create_db_manager.run psql(create_database_command)
+      @app.host.create_db_manager.run psql(create_database_command)
     end
 
     private
@@ -50,11 +50,11 @@ module Machete
     end
 
     def port
-      server.port
+      5524
     end
 
     def connecting_database
-      server.type
+      'postgres'
     end
   end
 end
