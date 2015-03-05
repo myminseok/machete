@@ -6,22 +6,24 @@ module Machete
       subject(:server) { Server.new }
 
       describe '#host' do
-        let(:cf_api) { double(:cf_api) }
+        context 'when bosh includes the vm postgres_zl' do
+          it 'returns the IP address for the VM' do
+            expect(server).to receive(:`).with('bosh vms').and_return(<<-BOSH_OUTPUT)
+| nfs_z1/0                           | running | small_z1      | 10.0.16.105    |
+| postgres_z1/0                      | running | small_z1      | 10.0.16.101    |
+            BOSH_OUTPUT
 
-        before do
-          allow(CF::API).
-            to receive(:new).
-                 and_return(cf_api)
-
-          allow(cf_api).
-            to receive(:execute).
-                 with(no_args).
-                 and_return('API endpoint: https://api.192.0.2.34.xip.io (API version: 2.6.0)')
+            expect(server.host).to eq '10.0.16.101'
+          end
         end
+      end
 
-        specify do
-          expect(server.host).to eql '192.0.2.30'
-        end
+      describe '#port' do
+        it { expect(server.port).to eq 5524 }
+      end
+
+      describe '#type' do
+        it { expect(server.type).to eq 'postgres' }
       end
     end
   end

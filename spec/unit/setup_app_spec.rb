@@ -47,7 +47,7 @@ module Machete
 
         allow(Database).
           to receive(:new).
-               with(database_name: app_name, server: database_server).
+               with(database_name: app_name, server: database_server, app: app).
                and_return(database)
 
         allow(database).

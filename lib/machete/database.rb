@@ -4,17 +4,18 @@ require 'machete/database/settings'
 
 module Machete
   class Database
-    def initialize(database_name:, server:)
+    def initialize(database_name:, server:, app:)
       @database_name = database_name
       @server = server
+      @app = app
     end
 
     def clear
-      SystemHelper.run_cmd psql(drop_database_command)
+      @app.create_db_manager.run psql(drop_database_command)
     end
 
     def create
-      SystemHelper.run_cmd psql(create_database_command)
+      @app.create_db_manager.run psql(create_database_command)
     end
 
     private
@@ -53,7 +54,7 @@ module Machete
     end
 
     def connecting_database
-      'postgres'
+      server.type
     end
   end
 end

@@ -5,39 +5,34 @@ module Machete
     let(:name) { 'name' }
     let(:host) { 'example.com' }
     let(:port) { 'port' }
-    let(:server) { double(:server, host: host, port: port) }
+    let(:type) { 'postgres' }
+    let(:server) { double(:server, host: host, port: port, type: type) }
 
     let(:password) { Database::Settings.superuser_password }
     let(:username) { Database::Settings.superuser_name }
 
-    subject(:database) { Database.new(database_name: name, server: server) }
+    let(:app) { double(:app, create_db_manager: db_manager) }
+    let(:db_manager) { double(:db_manager) }
+
+    subject(:database) { Database.new(database_name: name, server: server, app: app) }
 
     describe '#clear' do
-      before do
-        allow(SystemHelper).
-          to receive(:run_cmd).
-               with("PGPASSWORD=#{password} psql -U #{username} -h #{host} -p #{port} -d postgres -c \"DROP DATABASE IF EXISTS #{name}\"")
-      end
-
       specify do
+        expect(db_manager).
+          to receive(:run).
+               with("PGPASSWORD=#{password} psql -U #{username} -h #{host} -p #{port} -d postgres -c \"DROP DATABASE IF EXISTS #{name}\"")
         database.clear
-        expect(SystemHelper).to have_received(:run_cmd)
       end
     end
 
     describe '#create' do
       let(:owner) { Database::Settings.user_name }
 
-      before do
-        allow(SystemHelper).
-          to receive(:run_cmd).
-               with("PGPASSWORD=#{password} psql -U #{username} -h #{host} -p #{port} -d postgres -c \"CREATE DATABASE #{name} WITH OWNER #{owner}\"")
-      end
-
       specify do
+        expect(db_manager).
+          to receive(:run).
+               with("PGPASSWORD=#{password} psql -U #{username} -h #{host} -p #{port} -d postgres -c \"CREATE DATABASE #{name} WITH OWNER #{owner}\"")
         database.create
-        expect(SystemHelper).
-          to have_received(:run_cmd)
       end
     end
   end

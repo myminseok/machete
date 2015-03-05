@@ -1,11 +1,14 @@
+require 'uri'
+
 module Machete
   class Database
     class Server
-      DATABASE_HOST_OCTET = '30'
-      IP_ADDRESS_REGEX = /(\d+\.\d+\.\d+\.)\d+/
+      IP_REGEXP = Regexp.new(/((25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)\.){3}(25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)/)
 
       def host
-        @database_ip ||= database_ip
+        output = `bosh vms`
+        postgres_host_line = output.split("\n").grep(/postgres/).first
+        IP_REGEXP.match(postgres_host_line).to_s
       end
 
       def port
@@ -14,21 +17,6 @@ module Machete
 
       def type
         'postgres'
-      end
-
-      private
-
-      def database_ip
-        cf_base_ip + DATABASE_HOST_OCTET
-      end
-
-
-      def cf_base_ip
-        ha_proxy_ip.slice(IP_ADDRESS_REGEX, 1)
-      end
-
-      def ha_proxy_ip
-        CF::API.new.execute
       end
     end
   end

@@ -1,6 +1,6 @@
 require 'bundler'
 require 'machete/host/vagrant/log'
-
+require 'machete/host/vagrant/db'
 
 module Machete
   module Host
@@ -24,6 +24,10 @@ module Machete
 
       def create_log_manager
         Log.new(self)
+      end
+
+      def create_db_manager
+        DB.new(self)
       end
 
       private

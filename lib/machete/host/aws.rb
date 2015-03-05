@@ -1,6 +1,7 @@
 require 'bundler'
 require 'shellwords'
 require 'machete/host/aws/log'
+require 'machete/host/aws/db'
 require 'pty'
 
 module Machete
@@ -13,12 +14,16 @@ module Machete
         Log.new(self)
       end
 
-      def run command
+      def create_db_manager
+        DB.new(self)
+      end
+
+      def run(command, vm_name)
         command = command.join('; ') if command.is_a?(Array)
         raise("BOSH_TARGET must be set") unless ENV['BOSH_TARGET']
 
         Bundler.with_clean_env do
-          PTY.spawn("bosh ssh runner_z1 --gateway_user vcap --gateway_host #{ENV['BOSH_TARGET']} --default_password p") do |output, input, pid|
+          PTY.spawn("bosh ssh #{vm_name} --gateway_user vcap --gateway_host #{ENV['BOSH_TARGET']} --default_password p") do |output, input, pid|
             buffer = ''
             thread = Thread.new do
               while char = output.read(1)

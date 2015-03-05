@@ -15,7 +15,8 @@ module Machete
     def reset_database(app, database_server)
       database = Database.new(
         database_name: database_name(app),
-        server: database_server
+        server: database_server,
+        app: app
       )
 
       database.clear
