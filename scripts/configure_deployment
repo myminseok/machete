@@ -1,21 +1,33 @@
 #!/bin/bash -l
-set -eo pipefail
+set -eox pipefail
 
-__parse_arguments() {
-  deployment=${1:-''}
-}
+#### Expected env vars:
+# CF_API_URL - the url to your CF api deployment, eg: api.10.244.0.34.xip.io
+#            - defaults to api.<ip-address>.xip.io where ip-adress is:
+#		- the contents of $HOME/workspace/bosh-lite/api-address 
+#		- otherwise 10.244.0.34
+#
+# CF_CLI_PASSWORD - the admin password for your CF API
+#                 - defaults to admin
+#
+# FULL_CF - if set to true, your CF must be a full cf deployment (not bosh-lite)
+#         - we use bosh lite typically, but we are experimenting with testing on full cloud foundry deployments.
+#         - defaults to false
+#
+# BOSH_TARGET_IP - The bosh-lite director ip address of your cloud foundry
+#                - Defaults: first we look in $HOME/workspace/bosh-lite/api-address and use that, otherwise 192.168.50.4
+#
+# BOSH_PASSWORD - The Admin password for your bosh-lite director
+#               - Defaults to admin
+#  
+# BOSH_GATEWAY_USER - the user account when using the bosh machine as a gateway for `bosh ssh`
+#                   - typically this is `vcap` but on some deployments it might end up being `ubuntu`
+#                   - Defaults to unset, meaning a gateway will not be used 
+FULL_CF=${FULL_CF:-""}
 
 __indent() {
   local msg=$1
   echo "-----> $msg"
-}
-
-__check_usage() {
-  if [ "$deployment" == "--help" ]; then
-    echo "Usage:"
-    echo "  $0 [deployment_name]"
-    exit 1
-  fi
 }
 
 __ensure_space() {
@@ -26,27 +38,26 @@ __ensure_space() {
   cf target -o pivotal -s integration
 }
 
-__ensure_deployments() {
-  if [ ! -d ~/workspace/deployments-buildpacks ]; then
-    __indent " unable to find ~/workspace/deployments-buildpacks"
-    exit 1
-  fi
-}
-
 __target_api() {
   __indent "Targetting CF API"
 
   set +e
 
-  if [ "$deployment" == "" ]; then
-    __indent " with local BOSH Lite environment"
-    cf api api.10.244.0.34.xip.io --skip-ssl-validation
-    cf login -u admin -p admin -o pivotal -s integration
+  if [ -n "${CF_API_URL}" ]; then
+    api_url=${CF_API_URL}
+  elif [ -f "$HOME/workspace/bosh-lite/api-address" ]; then
+    api_url=api.`cat $HOME/workspace/bosh-lite/api-address`.xip.io
   else
-    __indent " with AWS deployment"
-    __ensure_deployments
-    cf api api.$CF_DEPLOYMENT_NAME.cf-app.com --skip-ssl-validation
+    api_url="api.10.244.0.34.xip.io"
+  fi
+
+  __indent " with ${api_url}"
+  cf api ${api_url} --skip-ssl-validation
+
+  if [ -n "${CF_CLI_PASSWORD}" ]; then
     cf login -u admin -p $CF_CLI_PASSWORD -o pivotal -s integration
+  else
+    cf login -u admin -p admin -o pivotal -s integration
   fi
 
   login_result=$?
@@ -61,16 +72,23 @@ __target_bosh() {
   __indent "Targetting bosh"
 
   set +e
-  if [ "$deployment" = "" ]; then
+  if [ -n "${BOSH_TARGET_IP}" ]; then
+    __indent " with ${BOSH_TARGET_IP}"
+    bosh target ${BOSH_TARGET_IP}
+  elif [ -f "$HOME/workspace/bosh-lite/api-address" ]; then
+    bosh target `cat $HOME/workspace/bosh-lite/api-address`
+  else
     __indent " with local BOSH Lite environment"
     bosh target 192.168.50.4
-    bosh login admin admin
-    bosh deployment ../bosh-lite/manifests/cf-manifest.yml
-  else
-    __indent " with AWS deployment"
-    __ensure_deployments
-    . ~/workspace/deployments-buildpacks/bin/switch $deployment 
   fi
+
+  if [ -n "${BOSH_PASSWORD}" ]; then
+    bosh login admin ${BOSH_PASSWORD}
+  else
+    bosh login admin admin
+  fi
+
+  bosh deployment ../bosh-lite/manifests/cf-manifest.yml
   set -e
 }
 
@@ -80,10 +98,11 @@ __reset_postgres_security_groups() {
   __indent "Setting up security groups for PostgreSQL access"
 
   cf delete-security-group postgres-access -f
-  if [ "$deployment" = "" ]; then
-    cf create-security-group postgres-access "./scripts/assets/postgres_security_group.json"
-  else
+
+  if [ "$FULL_CF" = true"" ]; then
     cf create-security-group postgres-access "./scripts/assets/aws_postgres_security_group.json"
+  else
+    cf create-security-group postgres-access "./scripts/assets/postgres_security_group.json"
   fi
   cf bind-security-group postgres-access pivotal integration
 }
@@ -105,14 +124,13 @@ __ensure_internet_traffic_logging() {
 
   bundle
 
-  if [ "$deployment" == "" ]; then
+  if [ "$FULL_CF" = "true" ]; then
+    __indent " with AWS deployment"
+    __reset_public_security_groups
+  else
     __indent " with local BOSH Lite environment"
     export VAGRANT_CWD=$HOME/workspace/bosh-lite 
     bundle exec ./scripts/enable_bosh_lite_enterprise_firewall.rb
-  else
-    __indent " with AWS deployment"
-    __ensure_deployments
-    __reset_public_security_groups
   fi
 }
 
@@ -126,17 +144,16 @@ __create_database_users() {
   create_machete_user_command="psql -h 0.0.0.0 -U vcap -p 5524 -d postgres -c \"create user machete with encrypted password 'machete' SUPERUSER\""
   create_buildpacks_user_command="psql -h 0.0.0.0 -U vcap -p 5524 -d postgres -c \"create user buildpacks with encrypted password 'buildpacks'\""
 
-  if [ "$deployment" = "" ]; then
-    bosh ssh --gateway_user vcap postgres_z1 0 --default_password p "$postgres_path_command;$change_path_command;$create_machete_user_command;$create_buildpacks_user_command"
+  packed_commands="$postgres_path_command;$change_path_command;$create_machete_user_command;$create_buildpacks_user_command"
+
+  if [ -n "${BOSH_GATEWAY_USER}" ]; then
+    bosh_target_host=$(ruby -ruri -e "print URI.parse(URI.extract('$(bosh target)')[0]).host")
+    bosh ssh --gateway_host ${bosh_target_host} --gateway_user ${BOSH_GATEWAY_USER:-vcap} postgres_z1 0 --default_password p --     bosh ssh postgres_z1 0 --default_password p -- "${packed_commands}"
   else
-    bosh_target_host=$(ruby -ruri -e "print URI.parse(URI.extract('`bosh target`')[0]).host")
-    bosh ssh --gateway_host $bosh_target_host --gateway_user vcap postgres_z1 0 --default_password p "$postgres_path_command;$change_path_command;$create_machete_user_command;$create_buildpacks_user_command"
+    bosh ssh postgres_z1 0 --default_password p -- "${packed_commands}"
   fi
+
 }
-
-
-__parse_arguments "$@"
-__check_usage
 
 __ensure_internet_traffic_logging
 __reset_postgres_security_groups
